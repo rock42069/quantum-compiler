@@ -25,13 +25,21 @@ RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 
 def run_all(algorithm: str, n_qubits: int, backend_name: str = 'nairobi',
-            seed: int = 42, **circuit_kwargs) -> dict:
+            seed: int = 42, max_level: int = 3, **circuit_kwargs) -> dict:
     """
-    Transpile *algorithm* at levels 0–3 on *backend*, simulate, collect metrics.
+    Transpile *algorithm* at levels 0–max_level on *backend*, simulate, collect metrics.
 
-    Returns a dict keyed by level (0–3) with compiled circuit + metrics.
+    Levels 0–3 use Qiskit presets. Levels 4–6 are custom extensions:
+      4 — Level 3 + TemplateOptimization + diagonal gate removal
+      5 — Level 4 + HoareOptimizer (needs z3-solver)
+      6 — Level 5 + ZX-calculus via PyZX (needs pyzx)
+
+    Returns a dict keyed by level with compiled circuit + metrics.
     Compiled circuits are serialised to results/<algorithm>_<n>q_level<l>.qpy.
     """
+    if max_level not in range(7):
+        raise ValueError(f"max_level must be 0–6, got {max_level}")
+
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     circuit = build_circuit(algorithm, n_qubits, **circuit_kwargs)
@@ -39,7 +47,7 @@ def run_all(algorithm: str, n_qubits: int, backend_name: str = 'nairobi',
 
     results = {}
 
-    for level in range(4):
+    for level in range(max_level + 1):
         pm = get_pass_manager(level, backend, seed=seed)
         compiled = pm.run(circuit)
 
@@ -82,6 +90,11 @@ def _parse_args():
     parser.add_argument('--n_qubits', type=int, required=True)
     parser.add_argument('--backend', default='nairobi', choices=['nairobi', 'sherbrooke'])
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--max_level', type=int, default=3, choices=range(7),
+                        help='Highest optimization level to run (0–6). '
+                             'Level 4 adds TemplateOptimization; '
+                             'Level 5 adds HoareOptimizer (needs z3-solver); '
+                             'Level 6 adds ZX-calculus via PyZX (needs pyzx).')
     parser.add_argument('--marked_state', default=None, help='Grover: target state bitstring')
     parser.add_argument('--secret_string', default=None, help='BV: secret bitstring')
     return parser.parse_args()
@@ -95,5 +108,7 @@ if __name__ == '__main__':
     if args.secret_string:
         kwargs['secret_string'] = args.secret_string
 
-    print(f"\nTranspiling {args.algorithm} ({args.n_qubits}q) on {args.backend} — seed={args.seed}\n")
-    run_all(args.algorithm, args.n_qubits, backend_name=args.backend, seed=args.seed, **kwargs)
+    print(f"\nTranspiling {args.algorithm} ({args.n_qubits}q) on {args.backend} "
+          f"— levels 0–{args.max_level}, seed={args.seed}\n")
+    run_all(args.algorithm, args.n_qubits, backend_name=args.backend,
+            seed=args.seed, max_level=args.max_level, **kwargs)
