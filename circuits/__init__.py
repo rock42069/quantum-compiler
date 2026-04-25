@@ -1,10 +1,10 @@
-from . import grover, qft, bv, qaoa
+"""Circuit registry: maps algorithm names to their build() functions."""
+
+from . import grover, qft
 
 ALGORITHMS = {
     'grover': grover,
     'qft': qft,
-    'bv': bv,
-    'qaoa': qaoa,
 }
 
 def build_circuit(algorithm: str, n_qubits: int, **kwargs):

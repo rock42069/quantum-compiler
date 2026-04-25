@@ -1,13 +1,6 @@
 """
-Benchmark runner that wraps our transpile_all pipeline.
-
-Runs all four algorithms at multiple qubit counts across all 4 optimization
-levels and aggregates metrics into a single JSON report.
-
-ARLINE integration is omitted: arline-benchmarks requires Python 3.8–3.10
-and is incompatible with the Python 3.14 environment. The benchmark here
-replicates ARLINE's structured output (gate_count, depth per circuit instance)
-using our own pipeline.
+Runs Grover and QFT at multiple qubit counts across optimization levels 0–3
+and aggregates metrics into a single JSON report.
 """
 
 import json
@@ -23,10 +16,8 @@ from analysis.metrics import gate_count, cx_count, depth
 
 
 ALGORITHMS = {
-    'grover': {'n_qubits_range': [2, 3, 4], 'kwargs': {}},
-    'qft':    {'n_qubits_range': [2, 3, 4, 5], 'kwargs': {}},
-    'bv':     {'n_qubits_range': [3, 4, 5], 'kwargs': {}},
-    'qaoa':   {'n_qubits_range': [3, 4], 'kwargs': {'p': 1}},
+    'grover': {'n_qubits_range': [3, 4, 5, 6], 'kwargs': {}},
+    'qft':    {'n_qubits_range': [3, 4, 5, 6, 16, 64], 'kwargs': {}},
 }
 
 BACKEND_NAME = 'nairobi'
@@ -34,12 +25,6 @@ SEED = 42
 
 
 def run_benchmark(output_path: str = None) -> dict:
-    """
-    Run all algorithms × qubit counts × optimization levels.
-
-    Returns nested dict: {algorithm: {n_qubits: {level: {gate_count, cx_count, depth}}}}.
-    Structural metrics only (no simulation) — fast enough for full sweeps.
-    """
     backend = get_backend(BACKEND_NAME)
     report = {}
 

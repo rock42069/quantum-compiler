@@ -1,3 +1,7 @@
+"""
+Grover's Search circuit
+"""
+
 import numpy as np
 from qiskit import QuantumCircuit
 

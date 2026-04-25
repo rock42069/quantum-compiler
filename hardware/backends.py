@@ -3,29 +3,26 @@ Backend selection for experiments.
 
 FakeNairobiV2  — 7 qubits, real IBM noise data, heavy-hex topology
 FakeSherbrooke — 127 qubits, Eagle r3 topology
-
-Also exposes manual CouplingMap helpers for controlled topology experiments.
 """
 
 from qiskit_ibm_runtime.fake_provider import FakeNairobiV2, FakeSherbrooke
 from qiskit.transpiler import CouplingMap
 
 
-def get_backend(name: str = 'nairobi', n_qubits: int = None):
-    """
-    Return a BackendV2 appropriate for *n_qubits*.
+NAIROBI_MAX_QUBITS = 7
+SHERBROOKE_MAX_QUBITS = 127
 
-    Args:
-        name: 'nairobi' (≤7 qubits) or 'sherbrooke' (≤127 qubits).
-        n_qubits: Used for automatic selection when name is not specified.
-    """
+
+def get_backend(name: str = 'nairobi', n_qubits: int = None): 
     if name == 'nairobi':
+        if n_qubits is not None and n_qubits > NAIROBI_MAX_QUBITS:
+            return FakeSherbrooke()
         return FakeNairobiV2()
     if name == 'sherbrooke':
         return FakeSherbrooke()
 
     # Auto-select by qubit count
-    if n_qubits is not None and n_qubits <= 7:
+    if n_qubits is not None and n_qubits <= NAIROBI_MAX_QUBITS:
         return FakeNairobiV2()
     return FakeSherbrooke()
 

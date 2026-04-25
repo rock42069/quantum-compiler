@@ -1,10 +1,10 @@
 """
-Top-level runner: transpile a circuit at all 4 optimization levels, simulate
+Top-level runner: transpile a circuit at all optimization levels, simulate
 under noise, collect metrics, and save compiled circuits to disk.
 
 Usage:
     python compiler/transpile_all.py --algorithm grover --n_qubits 4
-    python compiler/transpile_all.py --algorithm bv --n_qubits 4 --secret_string 1011
+    python compiler/transpile_all.py --algorithm qft --n_qubits 4
 """
 
 import argparse
@@ -29,16 +29,15 @@ def run_all(algorithm: str, n_qubits: int, backend_name: str = 'nairobi',
     """
     Transpile *algorithm* at levels 0–max_level on *backend*, simulate, collect metrics.
 
-    Levels 0–3 use Qiskit presets. Levels 4–6 are custom extensions:
+    Levels 0–3 use Qiskit presets. Levels 4–5 are custom extensions:
       4 — Level 3 + TemplateOptimization + diagonal gate removal
       5 — Level 4 + HoareOptimizer (needs z3-solver)
-      6 — Level 5 + ZX-calculus via PyZX (needs pyzx)
 
     Returns a dict keyed by level with compiled circuit + metrics.
     Compiled circuits are serialised to results/<algorithm>_<n>q_level<l>.qpy.
     """
-    if max_level not in range(7):
-        raise ValueError(f"max_level must be 0–6, got {max_level}")
+    if max_level not in range(6):
+        raise ValueError(f"max_level must be 0–5, got {max_level}")
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -62,12 +61,13 @@ def run_all(algorithm: str, n_qubits: int, backend_name: str = 'nairobi',
             'metrics': metrics,
         }
 
+        tvd_str = f"{metrics['tvd']:.4f}" if metrics['tvd'] is not None else 'N/A (>20q)'
         print(
             f"  Level {level}: "
             f"gates={metrics['gate_count']:4d}  "
             f"cx={metrics['cx_count']:3d}  "
             f"depth={metrics['depth']:4d}  "
-            f"TVD={metrics['tvd']:.4f}"
+            f"TVD={tvd_str}"
         )
 
     _save_metrics_json(algorithm, n_qubits, results)
@@ -86,17 +86,15 @@ def _save_metrics_json(algorithm: str, n_qubits: int, results: dict):
 
 def _parse_args():
     parser = argparse.ArgumentParser(description='Transpile and simulate a quantum algorithm at levels 0–3.')
-    parser.add_argument('--algorithm', required=True, choices=['grover', 'qft', 'bv', 'qaoa'])
+    parser.add_argument('--algorithm', required=True, choices=['grover', 'qft'])
     parser.add_argument('--n_qubits', type=int, required=True)
     parser.add_argument('--backend', default='nairobi', choices=['nairobi', 'sherbrooke'])
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--max_level', type=int, default=3, choices=range(7),
-                        help='Highest optimization level to run (0–6). '
+    parser.add_argument('--max_level', type=int, default=3, choices=range(6),
+                        help='Highest optimization level to run (0–5). '
                              'Level 4 adds TemplateOptimization; '
-                             'Level 5 adds HoareOptimizer (needs z3-solver); '
-                             'Level 6 adds ZX-calculus via PyZX (needs pyzx).')
+                             'Level 5 adds HoareOptimizer (needs z3-solver).')
     parser.add_argument('--marked_state', default=None, help='Grover: target state bitstring')
-    parser.add_argument('--secret_string', default=None, help='BV: secret bitstring')
     return parser.parse_args()
 
 
@@ -105,8 +103,6 @@ if __name__ == '__main__':
     kwargs = {}
     if args.marked_state:
         kwargs['marked_state'] = args.marked_state
-    if args.secret_string:
-        kwargs['secret_string'] = args.secret_string
 
     print(f"\nTranspiling {args.algorithm} ({args.n_qubits}q) on {args.backend} "
           f"— levels 0–{args.max_level}, seed={args.seed}\n")

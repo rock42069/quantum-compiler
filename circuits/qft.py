@@ -1,3 +1,7 @@
+"""
+Quantum Fourier Transform (QFT) circuit 
+"""
+
 import numpy as np
 from qiskit import QuantumCircuit
 

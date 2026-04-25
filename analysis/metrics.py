@@ -1,9 +1,6 @@
 """
-Circuit quality metrics.
-
 Primary metric is TVD (Total Variation Distance) between the ideal statevector
-distribution and the noisy simulation output. TVD directly corresponds to how
-"peaked" vs "spread" the probability histogram looks — the thesis of the project.
+distribution and the noisy simulation output. 
 
 Secondary metrics: gate_count, cx_count, depth (structural complexity).
 """
@@ -13,7 +10,8 @@ from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel
 
 
-SHOTS = 8192   # minimum for stable probability estimates
+SHOTS = 8192        # minimum for stable probability estimates
+SIM_QUBIT_LIMIT = 20  # circuits wider than this skip statevector simulation
 
 
 def tvd(ideal_probs: dict, noisy_probs: dict) -> float:
@@ -63,21 +61,26 @@ def compute_all_metrics(original: QuantumCircuit, compiled: QuantumCircuit,
     """
     Compute structural and fidelity metrics for a compiled circuit.
 
-    Runs two simulations:
-      1. Ideal statevector simulation on the *original* (pre-transpile) circuit
-      2. Noisy simulation on the *compiled* circuit using backend noise model
+    For circuits with more than SIM_QUBIT_LIMIT qubits the statevector
+    simulation is skipped (2^n memory is infeasible) and tvd/probs are None.
 
     Returns a flat dict suitable for JSON serialisation.
     """
-    noise_model = NoiseModel.from_backend(backend)
+    struct = {
+        'gate_count': gate_count(compiled),
+        'cx_count': cx_count(compiled),
+        'depth': depth(compiled),
+    }
 
+    if original.num_qubits > SIM_QUBIT_LIMIT:
+        return {**struct, 'tvd': None, 'ideal_probs': {}, 'noisy_probs': {}}
+
+    noise_model = NoiseModel.from_backend(backend)
     ideal_probs = _get_counts(original, shots=SHOTS, seed=seed)
     noisy_probs = _get_counts(compiled, shots=SHOTS, noise_model=noise_model, seed=seed)
 
     return {
-        'gate_count': gate_count(compiled),
-        'cx_count': cx_count(compiled),
-        'depth': depth(compiled),
+        **struct,
         'tvd': tvd(ideal_probs, noisy_probs),
         'ideal_probs': ideal_probs,
         'noisy_probs': noisy_probs,
